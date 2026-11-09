@@ -1,0 +1,148 @@
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Segoe UI", "Noto Sans JP", sans-serif;
+  color: #222;
+  background: #fff;
+  line-height: 1.8;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 8%;
+  border-bottom: 1px solid #eee;
+}
+
+header h1 {
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+nav {
+  display: flex;
+  gap: 28px;
+}
+
+nav a {
+  color: #555;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+nav a:hover {
+  color: #3978c6;
+}
+
+.hero {
+  min-height: 520px;
+  padding: 120px 12%;
+  background: #f8fafc;
+}
+
+.subtitle {
+  color: #3978c6;
+  font-size: 13px;
+  letter-spacing: 3px;
+  font-weight: bold;
+}
+
+.hero h2 {
+  margin: 20px 0;
+  font-size: clamp(42px, 7vw, 76px);
+  line-height: 1.15;
+  letter-spacing: -2px;
+}
+
+.hero > p:not(.subtitle) {
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.button {
+  display: inline-block;
+  padding: 12px 28px;
+  background: #3978c6;
+  color: #fff;
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 1px;
+  border-radius: 4px;
+}
+
+section:not(.hero) {
+  padding: 90px 12%;
+}
+
+section h2 {
+  margin-bottom: 32px;
+  font-size: 30px;
+}
+
+.project {
+  padding: 30px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.project > p:first-child {
+  color: #3978c6;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+.project h3 {
+  margin: 12px 0;
+  font-size: 24px;
+}
+
+.project span {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 4px 12px;
+  background: #eef4fc;
+  color: #3978c6;
+  font-size: 12px;
+  border-radius: 20px;
+}
+
+#skills,
+footer {
+  background: #f8fafc;
+}
+
+footer {
+  padding: 28px;
+  text-align: center;
+  color: #888;
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  nav {
+    gap: 18px;
+  }
+
+  .hero {
+    padding: 90px 8%;
+  }
+
+  section:not(.hero) {
+    padding: 65px 8%;
+  }
+}
