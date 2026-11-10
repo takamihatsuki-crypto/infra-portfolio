@@ -1,89 +1,138 @@
-# Infrastructure Portfolio
+# インフラエンジニア ポートフォリオ
 
-インフラエンジニアとして学習した内容と、AWS上で実際に設計・構築・検証した内容をまとめたポートフォリオです。
+AWSを利用したインフラ環境の設計・構築と、Webサイトの公開を実践した記録です。
+構築した内容だけでなく、ネットワーク構成、セキュリティ設定、作業手順、動作確認の結果をまとめています。
 
-## Overview
+## 1. プロジェクト概要
 
-- **Webサイト**: HTML / CSS
-- **ソースコード**: GitHub
-- **AWS公開環境**: Amazon EC2 + Apache
-- **AWSリージョン**: 東京（`ap-northeast-1`）
-- **公開URL**: http://18.181.118.130
+### AWSを利用したWebサーバーの構築
 
-> この公開URLはEC2に割り当てられたパブリックIPv4アドレスです。インスタンスの停止・起動や再作成などで変更される場合があります。HTTPSはまだ設定していません。
+AWS上に仮想ネットワークとEC2インスタンスを作成し、Apacheを使ってポートフォリオサイトを公開しました。
 
-## Project 01: AWS Web Server
-
-<details>
-<summary>構築内容</summary>
-
-| 項目 | 設定 |
+| 項目 | 内容 |
 |---|---|
-| VPC | `portfolio-vpc` |
-| VPC IPv4 CIDR | `10.0.0.0/16` |
-| Availability Zone | `ap-northeast-1a` |
-| Public Subnet | `portfolio-vpc-subnet-public1-ap-northeast-1a` |
-| Subnet IPv4 CIDR | `10.0.1.0/20` |
-| Internet Gateway | `portfolio-vpc-igw`（VPCにアタッチ） |
-| Route Table | `10.0.0.0/16 → local`、`0.0.0.0/0 → Internet Gateway` |
-| Private Subnet | 未作成 |
-| NAT Gateway | 未作成 |
-| VPC Endpoint | 未作成 |
-| Security Group | `portfolio-web-sg` |
-| EC2 | `portfolio-web-server` |
-| AMI | Amazon Linux 2023 |
-| Instance Type | `t3.micro` |
-| Storage | gp3、8 GiB |
-| Web Server | Apache HTTP Server 2.4 |
-| Web Root | `/var/www/html` |
+| 目的 | AWS上にWebサーバーを構築し、Webサイトをインターネットに公開する |
+| クラウドサービス | Amazon Web Services（AWS） |
+| リージョン | 東京リージョン（`ap-northeast-1`） |
+| サーバーOS | Amazon Linux 2023 |
+| インスタンス | Amazon EC2（`t3.micro`） |
+| Webサーバー | Apache HTTP Server 2.4 |
+| Webサイト | HTML / CSS |
+| ソースコード管理 | Git / GitHub |
+| 公開URL | http://18.181.118.130 |
 
-</details>
+> **公開環境について：** 現在はHTTPで公開しています。HTTPS（TLS証明書）と独自ドメインは未設定です。また、上記IPアドレスはEC2のパブリックIPv4アドレスのため、インスタンスの停止・起動や再作成などにより変更される場合があります。
 
-### Architecture
+## 2. システム構成
+
+### 構成図
+
+次の構成で、インターネットからEC2上のApacheにHTTP（TCP 80）でアクセスできるようにしています。
 
 ```mermaid
 flowchart TB
-    Internet((Internet))
-    IGW[Internet Gateway<br/>portfolio-vpc-igw]
-    subgraph VPC["VPC: portfolio-vpc / 10.0.0.0/16"]
-      subgraph PublicSubnet["Public Subnet / 10.0.1.0/20 / ap-northeast-1a"]
-        SG["Security Group<br/>portfolio-web-sg"]
-        EC2["EC2: portfolio-web-server<br/>Amazon Linux 2023 / t3.micro"]
-        Apache["Apache HTTP Server<br/>TCP 80"]
+    User["利用者のWebブラウザ"]
+    Internet(("インターネット"))
+    IGW["Internet Gateway<br/>portfolio-vpc-igw"]
+    subgraph VPC["VPC：portfolio-vpc<br/>10.0.0.0/16"]
+      RT["ルートテーブル<br/>10.0.0.0/16 → local<br/>0.0.0.0/0 → Internet Gateway"]
+      subgraph PublicSubnet["パブリックサブネット<br/>10.0.1.0/20<br/>ap-northeast-1a"]
+        SG["セキュリティグループ<br/>portfolio-web-sg<br/>HTTP：80 / SSH：22"]
+        EC2["EC2インスタンス<br/>portfolio-web-server<br/>Amazon Linux 2023 / t3.micro"]
+        Apache["Apache HTTP Server<br/>Webサイトを配信"]
         SG --> EC2 --> Apache
       end
-      RT["Route Table<br/>10.0.0.0/16 → local<br/>0.0.0.0/0 → IGW"]
     end
-    Internet <--> IGW
-    IGW <--> RT
+    User --> Internet
+    Internet --> IGW
+    IGW --> RT
     RT --> PublicSubnet
-    Internet -->|HTTP :80| SG
+    Internet -. "HTTP（TCP 80）" .-> SG
 ```
 
-### Security Group rules
+### ネットワーク設計
 
-Security Group: `portfolio-web-sg`
+| 項目 | 設定値 | 役割 |
+|---|---|---|
+| VPC | `portfolio-vpc` | AWS上に作成した仮想ネットワーク |
+| VPCのIPv4 CIDR | `10.0.0.0/16` | VPC内で使用するIPアドレス範囲 |
+| アベイラビリティゾーン | `ap-northeast-1a` | EC2を配置したAZ |
+| パブリックサブネット | `portfolio-vpc-subnet-public1-ap-northeast-1a` | インターネット接続を行うEC2を配置 |
+| サブネットのIPv4 CIDR | `10.0.1.0/20` | サブネット内で使用するIPアドレス範囲 |
+| Internet Gateway | `portfolio-vpc-igw` | VPCとインターネット間の通信経路 |
+| ルートテーブル | メインのルートに加え、インターネット向けルートを設定 | 通信の宛先に応じた経路制御 |
 
-| Direction | Protocol | Port | Source / Destination | Purpose |
+### ルートテーブル
+
+| 宛先 | ターゲット | 意味 |
+|---|---|---|
+| `10.0.0.0/16` | `local` | VPC内部の通信 |
+| `0.0.0.0/0` | Internet Gateway | VPC外部（インターネット）向けの通信 |
+
+パブリックサブネットに配置したEC2がインターネットと通信できるよう、デフォルトルート（`0.0.0.0/0`）のターゲットにInternet Gatewayを指定しています。
+
+### セキュリティグループ
+
+セキュリティグループ名：`portfolio-web-sg`
+
+| 方向 | プロトコル | ポート | 接続元・接続先 | 用途 |
 |---|---|---:|---|---|
-| Inbound | TCP | 80 | `0.0.0.0/0` | Web access over HTTP |
-| Inbound | TCP | 22 | `219.104.131.202/32` | SSH access from the configured client IP |
-| Inbound | TCP | 22 | `com.amazonaws.ap-northeast-1.ec2-instance-connect` | Browser-based EC2 Instance Connect |
-| Outbound | All | All | `0.0.0.0/0` | Default outbound rule |
+| インバウンド | TCP | 80 | `0.0.0.0/0` | WebサイトへのHTTPアクセス |
+| インバウンド | TCP | 22 | 接続元のグローバルIP（/32） | SSH接続 |
+| インバウンド | TCP | 22 | EC2 Instance Connectの管理プレフィックスリスト | ブラウザからのEC2 Instance Connect接続 |
+| アウトバウンド | すべて | すべて | `0.0.0.0/0` | デフォルトの送信ルール |
 
-SSH is not opened to `0.0.0.0/0`. The EC2 Instance Connect managed prefix list is used for browser-based SSH access. See [AWS documentation](https://docs.aws.amazon.com/ja_jp/AWSEC2/latest/UserGuide/ec2-instance-connect-prerequisites.html).
+**セキュリティ上の考慮点**
 
-### Build and deployment steps
+- Webサイトを一般公開するため、HTTP（TCP 80）は全IPv4アドレスからのアクセスを許可しています。
+- SSH（TCP 22）は全世界に公開せず、接続元IPを限定しています。
+- EC2 Instance Connectからの接続には、AWS管理のプレフィックスリストを使用しています。
+- SSHの接続元IPは環境に応じて変わるため、このREADMEでは具体的なIPアドレスを公開していません。
 
-The following steps were performed in the AWS Management Console and the EC2 Instance Connect terminal.
+参考：[EC2 Instance Connectの前提条件（AWS公式ドキュメント）](https://docs.aws.amazon.com/ja_jp/AWSEC2/latest/UserGuide/ec2-instance-connect-prerequisites.html)
 
-1. Created the VPC and one public subnet.
-2. Created and attached an Internet Gateway.
-3. Configured the route table so that `0.0.0.0/0` routes to the Internet Gateway.
-4. Created the Security Group with HTTP and restricted SSH inbound rules.
-5. Launched an Amazon Linux 2023 EC2 instance (`t3.micro`, gp3 8 GiB) in the public subnet.
-6. Connected to the instance using EC2 Instance Connect.
-7. Updated packages and installed Apache and Git.
+## 3. EC2・Webサーバーの構築
+
+### EC2インスタンス
+
+| 項目 | 設定 |
+|---|---|
+| インスタンス名 | `portfolio-web-server` |
+| OSイメージ | Amazon Linux 2023 |
+| インスタンスタイプ | `t3.micro` |
+| vCPU | 2 |
+| メモリ | 1 GiB |
+| ストレージ | gp3 / 8 GiB |
+| 配置先 | `portfolio-vpc` のパブリックサブネット |
+
+### 構築手順
+
+以下は、AWSマネジメントコンソールとEC2 Instance Connectを使用して実施した手順です。
+
+1. **VPCとサブネットの作成**
+   - VPC（`10.0.0.0/16`）を作成
+   - パブリックサブネット（`10.0.1.0/20`）を作成
+   - サブネットのパブリックIPv4アドレス自動割り当てを有効化
+
+2. **インターネット接続の設定**
+   - Internet Gatewayを作成してVPCにアタッチ
+   - ルートテーブルに `0.0.0.0/0 → Internet Gateway` を追加
+   - パブリックサブネットをルートテーブルに関連付け
+
+3. **セキュリティグループの作成**
+   - HTTP（TCP 80）の受信を許可
+   - SSH（TCP 22）は接続元IPとEC2 Instance Connect用のプレフィックスリストに限定
+
+4. **EC2インスタンスの作成**
+   - Amazon Linux 2023、`t3.micro` を選択
+   - 作成したVPCとパブリックサブネットに配置
+   - 作成したセキュリティグループを適用
+
+5. **EC2 Instance Connectで接続**
+   - AWSマネジメントコンソールからブラウザ接続
+   - ログインユーザー：`ec2-user`
+
+6. **パッケージの更新とApache・Gitのインストール**
 
    ```bash
    sudo dnf update -y
@@ -91,7 +140,7 @@ The following steps were performed in the AWS Management Console and the EC2 Ins
    sudo dnf install git -y
    ```
 
-8. Started Apache and enabled it at boot.
+7. **Apacheの起動と自動起動設定**
 
    ```bash
    sudo systemctl start httpd
@@ -99,20 +148,41 @@ The following steps were performed in the AWS Management Console and the EC2 Ins
    sudo systemctl status httpd
    ```
 
-9. Cloned this public repository and copied the website files into Apache's document root.
+   `Active: active (running)` と表示されることを確認しました。
+
+8. **GitHubからWebサイトのソースコードを取得**
 
    ```bash
    cd /home/ec2-user
    git clone https://github.com/takamihatsuki-crypto/infra-portfolio.git
+   ```
+
+9. **Apacheの公開ディレクトリへ配置**
+
+   ```bash
    sudo cp -r /home/ec2-user/infra-portfolio/* /var/www/html/
    ```
 
-10. Verified the local HTTP response with `curl -I http://localhost` and confirmed `HTTP/1.1 200 OK`.
-11. Opened the EC2 public IPv4 address in a browser and confirmed that the portfolio page was displayed.
+   HTMLファイルとCSSフォルダが配置されたことを確認しました。
 
-### Update deployment
+## 4. 動作確認
 
-After pushing website changes to the GitHub `main` branch, update the EC2 working copy and publish the files again:
+構築後、次の項目を確認しました。
+
+| 確認項目 | 確認方法 | 結果 |
+|---|---|---|
+| Apacheの起動状態 | `systemctl status httpd` | `active (running)` を確認 |
+| Webサーバーの応答 | `curl -I http://localhost` | `HTTP/1.1 200 OK` を確認 |
+| Webサイトの配置 | `/var/www/html` の内容を確認 | `index.html` と `css` フォルダを確認 |
+| 外部からのアクセス | ブラウザで公開IPにアクセス | Webサイトの表示を確認 |
+
+### 公開サイト
+
+[Infrastructure Portfolio（AWS EC2）](http://18.181.118.130)
+
+## 5. Webサイトの更新手順
+
+GitHubの`main`ブランチに変更を反映した後、EC2上で次のコマンドを実行すると、公開ファイルを更新できます。
 
 ```bash
 cd /home/ec2-user/infra-portfolio
@@ -120,34 +190,42 @@ git pull origin main
 sudo cp -r /home/ec2-user/infra-portfolio/* /var/www/html/
 ```
 
-## Verification and remaining work
+## 6. 現時点の対応状況と今後の改善
 
-### Verified
+### 実施済み
 
-- [x] VPC, public subnet, Internet Gateway and route table created
-- [x] Security Group configured
-- [x] EC2 instance launched and reachable with EC2 Instance Connect
-- [x] Apache service running
-- [x] Local HTTP response returns `200 OK`
-- [x] Website files deployed from GitHub
-- [x] Website accessible from a browser over HTTP
+- [x] VPC・パブリックサブネットの作成
+- [x] Internet Gatewayの作成とVPCへのアタッチ
+- [x] ルートテーブルの設定
+- [x] セキュリティグループの設定
+- [x] EC2インスタンスの作成
+- [x] EC2 Instance Connectによる接続
+- [x] Apacheのインストール・起動
+- [x] GitHubからのソースコード取得
+- [x] EC2へのWebサイト配置
+- [x] HTTPによる外部公開とブラウザでの表示確認
 
-### Not implemented yet
+### 今後の改善予定
 
-- [ ] HTTPS / TLS certificate
-- [ ] Domain name
-- [ ] Private subnet and NAT architecture
-- [ ] High availability across multiple Availability Zones
-- [ ] Monitoring and alerting
-- [ ] Architecture and deployment screenshots
+- [ ] HTTPS化（TLS証明書の導入）
+- [ ] 独自ドメインの設定
+- [ ] CloudWatchによるメトリクス監視・アラーム設定
+- [ ] プライベートサブネットを含む構成の検討
+- [ ] 複数AZを利用した可用性向上の検討
+- [ ] AWS構成図や動作確認画面のスクリーンショット追加
 
-## Skills
+※上記は今後の改善項目です。現時点で未構築の機能を、実装済みとして記載していません。
 
-- AWS: VPC, Subnet, Internet Gateway, Route Table, Security Group, EC2
-- Linux: Amazon Linux 2023, package management, systemd, file permissions
-- Web: Apache HTTP Server, HTML, CSS
-- Version Control: Git / GitHub
+## 7. 使用技術・学習項目
 
-## Purpose
+- **AWS：** VPC、Subnet、Internet Gateway、Route Table、Security Group、EC2
+- **Linux：** Amazon Linux 2023、dnf、systemd、Linuxコマンド
+- **Webサーバー：** Apache HTTP Server
+- **Web制作：** HTML、CSS
+- **バージョン管理：** Git、GitHub
 
-クラウドインフラの設計・構築・運用に必要な知識を、実際に手を動かして習得することを目的としています。
+## 8. 制作目的
+
+クラウドインフラの基本的な仕組みを理解し、ネットワークの設計からサーバー構築、Webサイトの公開、動作確認までを一通り実践することを目的としています。
+
+今後も実際に構築・検証した内容を追加し、インフラエンジニアとしての技術習得の記録を更新していきます。
