@@ -180,12 +180,6 @@ flowchart TB
 
 [Infrastructure Portfolio（AWS EC2）](http://18.181.118.130)
 
-### AWS EC2インスタンス画面
-
-AWSマネジメントコンソールで、EC2インスタンスが稼働中であり、ステータスチェックが3/3合格していることを確認しました。
-
-![AWS EC2インスタンスの稼働状況](docs/images/ec2-instance-16x9.png)
-
 ## 5. Webサイトの更新手順
 
 GitHubの`main`ブランチに変更を反映した後、EC2上で次のコマンドを実行すると、公開ファイルを更新できます。
@@ -210,10 +204,10 @@ sudo cp -r /home/ec2-user/infra-portfolio/* /var/www/html/
 - [x] GitHubからのソースコード取得
 - [x] EC2へのWebサイト配置
 - [x] HTTPによる外部公開とブラウザでの表示確認
-- [x] AWS EC2インスタンスの稼働状況をスクリーンショットで記録
 
 ### 今後の改善予定
 
+- [ ] AWS EC2インスタンス画面のスクリーンショット追加
 - [ ] HTTPS化（TLS証明書の導入）
 - [ ] 独自ドメインの設定
 - [ ] CloudWatchによるメトリクス監視・アラーム設定
